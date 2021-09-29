@@ -3,7 +3,7 @@
 // An easier working method for passing json data to db would be to get the bson validation schema in frontend, to serialize
 // the data there based on validation schema and here just to replace the given expressions with bson types. But that method
 // would be error prone and an extra convern for the webmaster.
-const fn = require('../../functions');
+const fn = require('../../../fn');
 const { ObjectId, Int32, Long, Double, Decimal128, BSONRegExp, Code, Binary } = require('mongodb');
 
 const topLevelKeys = ['$and', '$or', '$nor'];

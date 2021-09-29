@@ -1,6 +1,6 @@
 'use strict';
 // model is connector specific, custom model is extending base model and is dbName specific
-const DB = require('../../db');
+const DB = require('../../');
 const jsonSchema = require('./json-schema');
 const orm = require('./orm');
 
