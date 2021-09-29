@@ -1,5 +1,5 @@
 'use strict';
-// dynamic export the folders and nodejs supported files in current working dir
+// dynamically export the folders and nodejs supported files in current working dir
 const fs = require('./fs');
 const dirs = fs.dirs(__dirname);
 const files = fs.files(__dirname);
