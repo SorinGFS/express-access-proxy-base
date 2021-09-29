@@ -1,6 +1,6 @@
 'use strict';
 // returns configured servers
-const fn = require('../functions');
+const fn = require('../fn');
 const fs = require('../fs');
 const Server = require('./server');
 

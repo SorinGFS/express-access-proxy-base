@@ -1,6 +1,6 @@
 'use strict';
 // This is a custom implementation of Auth0's JsonWebToken library: https://github.com/auth0/node-jsonwebtoken
-const fn = require('../functions');
+const fn = require('../fn');
 const jwt = require('jsonwebtoken');
 const createError = require('http-errors');
 
