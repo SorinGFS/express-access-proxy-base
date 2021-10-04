@@ -1,6 +1,6 @@
 {
   "name": "express-access-proxy-base",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "Express Access Proxy Base",
   "main": "index.js",
   "scripts": {
