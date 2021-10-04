@@ -7,6 +7,7 @@ const createError = require('http-errors');
 class Server {
     constructor(configServer) {
         Object.assign(this, configServer);
+        this.response = {};
         if (this.auth) {
             if (!this.auth.jwt) this.auth.jwt = {};
             this.auth.jwt.sign = (payload) => {
@@ -126,6 +127,56 @@ class Server {
             };
         }
     }
+    // set auth db connection 
+    setAuthDb = (req, authDb) => {
+        if (!authDb) throw new Error(`Error: <access> db connection config not found!`);
+        authDb.namespace = 'access.permissions';
+        req.server.Permissions = require('../db/model')(authDb);
+    };
+    // direct response
+    send = (req, res) => {
+        if (req.server.response.headers) res.set(req.server.response.headers);
+        res.sendStatus(req.server.response.status);
+    };
+    // combine server and location rules
+    parseLocations = (req) => {
+        if (req.server.locations) {
+            req.server.locations.some((location) => {
+                Object.keys(location).some((path) => {
+                    req.server.response.status = 0;
+                    if (new RegExp(path, location[path].regexFlags).test(req.path)) {
+                        if (location[path].urlRewrite) {
+                            if (location[path].return) req.server.response.status = location[path].return;
+                            this.rewrite(req, location[path].urlRewrite, true);
+                        }
+                        req.server = fn.mergeDeep({}, req.server, location[path]);
+                    }
+                });
+            });
+        }
+    };
+    // url rewrite, syntax: [regex, replacement, breakingFlag?, regexFlags?] or arrays of the same format
+    rewrite = (req, rules, inLocation) => {
+        // if rules not array of arrays convert them to it
+        if (!Array.isArray(rules[0])) rules = [rules];
+        rules.some((rule) => {
+            // rewrite the url
+            req.url = req.url.replace(new RegExp(rule[0], rule[3]), rule[1]);
+            // meaning: has breaking flag
+            if (rule[2]) {
+                // meaning: found the right path, rescan locations to find its settings
+                if (rule[2] === 'last') return inLocation ? this.parseLocations(req) : true;
+                // meaning: found, this is the path, apply settings
+                if (rule[2] === 'break') return true;
+                // meaning: found, send 302 temporary redirect to new url
+                if (rule[2] === 'redirect') return Object.assign(req.server.response, { status: 302, headers: { Location: req.url } });
+                // meaning: found, send 301 permanent redirect to new url
+                if (rule[2] === 'permanent') return Object.assign(req.server.response, { status: 301, headers: { Location: req.url } });
+            }
+            // meaning: no breaking flag, check the next rule
+            return false;
+        });
+    };
 }
 
 module.exports = Server;
