@@ -10,7 +10,7 @@ class Model extends DB {
         super(connection);
         Object.assign(this, jsonSchema, { orm });
         this.isConnected = false;
-        this.collection = connection.namespace.split('.')[1];
+        this.collection = connection.controller;
     }
     async init() {
         if (!this.isConnected) {

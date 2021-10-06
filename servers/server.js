@@ -7,7 +7,7 @@ const createError = require('http-errors');
 class Server {
     constructor(configServer) {
         Object.assign(this, configServer);
-        this.response = {};
+        if (!this.site) this.site = {};
         if (this.auth) {
             if (!this.auth.jwt) this.auth.jwt = {};
             this.auth.jwt.sign = (payload) => {
@@ -127,26 +127,33 @@ class Server {
             };
         }
     }
-    // set auth db connection 
-    setAuthDb = (req, authDb) => {
-        if (!authDb) throw new Error(`Error: <access> db connection config not found!`);
-        authDb.namespace = 'access.permissions';
-        req.server.Permissions = require('../db/model')(authDb);
-    };
     // direct response
     send = (req, res) => {
-        if (req.server.response.headers) res.set(req.server.response.headers);
-        res.sendStatus(req.server.response.status);
+        if (req.setHeaders) res.set(req.setHeaders);
+        res.sendStatus(req.sendStatus);
+    };
+    // set access db connection
+    setAccessDb = (req, accessDb) => {
+        if (!accessDb) throw new Error(`Error: <access> db connection config not found!`);
+        accessDb.controller = 'permissions';
+        req.server.Permissions = require('../db/model')(accessDb);
+    };
+    // set Model
+    setModel = (req) => {
+        if (!req.connection) throw new Error(`Error: <${req.site.database}> db connection config not found!`);
+        // in api controller is db table or collection
+        req.connection.controller = req.site.controller;
+        req.Model = require('../db/model')(req.connection);
     };
     // combine server and location rules
     parseLocations = (req) => {
         if (req.server.locations) {
             req.server.locations.some((location) => {
                 Object.keys(location).some((path) => {
-                    req.server.response.status = 0;
+                    req.sendStatus = 0;
                     if (new RegExp(path, location[path].regexFlags).test(req.path)) {
                         if (location[path].urlRewrite) {
-                            if (location[path].return) req.server.response.status = location[path].return;
+                            if (location[path].return) req.sendStatus = location[path].return;
                             this.rewrite(req, location[path].urlRewrite, true);
                         }
                         req.server = fn.mergeDeep({}, req.server, location[path]);
@@ -169,9 +176,9 @@ class Server {
                 // meaning: found, this is the path, apply settings
                 if (rule[2] === 'break') return true;
                 // meaning: found, send 302 temporary redirect to new url
-                if (rule[2] === 'redirect') return Object.assign(req.server.response, { status: 302, headers: { Location: req.url } });
+                if (rule[2] === 'redirect') return Object.assign(req, { sendStatus: 302, setHeaders: { Location: req.url } });
                 // meaning: found, send 301 permanent redirect to new url
-                if (rule[2] === 'permanent') return Object.assign(req.server.response, { status: 301, headers: { Location: req.url } });
+                if (rule[2] === 'permanent') return Object.assign(req, { sendStatus: 301, setHeaders: { Location: req.url } });
             }
             // meaning: no breaking flag, check the next rule
             return false;

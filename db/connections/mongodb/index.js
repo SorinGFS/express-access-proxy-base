@@ -1,18 +1,18 @@
 'use strict';
 // https://docs.mongodb.com/manual/reference/connection-string/
 module.exports = (connection) => {
-    connection.authDb = connection.authDb || connection.dbName ;
+    connection.authenticator.database = connection.authenticator.database || connection.database ;
 
     let credentials;
-    if (connection.db.user && connection.db.pass) {
-        credentials = `${connection.db.user}:${connection.db.pass}@`;
+    if (connection.authenticator.username && connection.authenticator.password) {
+        credentials = `${connection.authenticator.username}:${connection.authenticator.password}@`;
     } else {
         credentials = '';
     }
 
     let hosts = [];
-    if (connection.db.hosts) {
-        connection.db.hosts.forEach((host) => {
+    if (connection.hosts) {
+        connection.hosts.forEach((host) => {
             if (host.hostname && host.port) {
                 hosts.push(`${host.hostname}:${host.port}`);
             }
@@ -26,7 +26,7 @@ module.exports = (connection) => {
         instances = 'localhost:27017/';
     }
 
-    connection.uri = `mongodb://${credentials}${instances}${connection.authDb}`;
+    connection.uri = `mongodb://${credentials}${instances}${connection.authenticator.database}`;
 
     return connection;
 };
