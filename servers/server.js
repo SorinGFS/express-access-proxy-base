@@ -140,10 +140,10 @@ class Server {
     };
     // set Model
     setModel = (req) => {
-        if (!req.connection) throw new Error(`Error: <${req.site.database}> db connection config not found!`);
+        if (!req.dbConnection) throw new Error(`Error: <${req.site.database}> db connection config not found!`);
         // in api controller is db table or collection
-        req.connection.controller = req.site.controller;
-        req.Model = require('../db/model')(req.connection);
+        req.dbConnection.controller = req.site.controller;
+        req.Model = require('../db/model')(req.dbConnection);
     };
     // combine server and location rules
     parseLocations = (req) => {

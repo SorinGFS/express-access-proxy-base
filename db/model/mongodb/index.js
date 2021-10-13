@@ -1,23 +1,21 @@
 'use strict';
-// model is connector specific, custom model is extending base model and is dbName specific
+// model is connector specific, custom model is extending base model and is database specific
 const DB = require('../../');
 const jsonSchema = require('./json-schema');
 const orm = require('./orm');
 
-// Many methods in the MongoDB driver will return a promise if the caller doesn't pass a callback function.
+// Many methods in the MongoDB driver will return a promise
 class Model extends DB {
     constructor(connection) {
         super(connection);
         Object.assign(this, jsonSchema, { orm });
-        this.isConnected = false;
-        this.collection = connection.controller;
     }
     async init() {
         if (!this.isConnected) {
             await this.connect()
-                .then(() => (this.db = this.client.db(this.dbName)))
-                .then(() => (this.db.collection = this.db.collection(this.collection)))
-                .then(() => (this.isConnected = true));
+            .then(() => (this.db = this.client.db(this.connection.database)))
+            .then(() => (this.db.collection = this.db.collection(this.connection.controller)))
+            .then(() => (this.isConnected = true));
         }
     }
     async close() {
@@ -29,12 +27,12 @@ class Model extends DB {
     }
     async setCollectionOptions(collectionOptions, commandOptions) {
         if (!this.isConnected) await this.init();
-        const command = { collMod: this.collection, ...collectionOptions };
+        const command = { collMod: this.connection.controller, ...collectionOptions };
         return await this.db.command({ ...command }, { ...commandOptions });
     }
     async indexes() {
         if (!this.isConnected) await this.init();
-        return await this.db.command({ listIndexes: this.collection }).then((result) => result.cursor.firstBatch);
+        return await this.db.command({ listIndexes: this.connection.controller }).then((result) => result.cursor.firstBatch);
     }
     async createIndex(keys, options, commitQuorum) {
         if (!this.isConnected) await this.init();
@@ -46,7 +44,7 @@ class Model extends DB {
     }
     async validation() {
         if (!this.isConnected) await this.init();
-        const collection = await this.db.listCollections({ name: this.collection }).toArray();
+        const collection = await this.db.listCollections({ name: this.connection.controller }).toArray();
         return { validator: collection[0].options.validator, validationLevel: collection[0].options.validationLevel, validationAction: collection[0].options.validationAction };
     }
     async setValidation(validation, commandOptions) {
@@ -55,20 +53,20 @@ class Model extends DB {
     }
     async info() {
         if (!this.isConnected) await this.init();
-        const collection = await this.db.listCollections({ name: this.collection }).toArray();
+        const collection = await this.db.listCollections({ name: this.connection.controller }).toArray();
         return { info: collection[0].info };
     }
     async count(filter) {
         if (!this.isConnected) await this.init();
         return { matchedCount: await this.db.collection.countDocuments({ ...filter }) };
     }
-    async distinct(key, filter, commandOptions) {
+    async distinct(key, filter, commandOperationOptions) {
         if (!this.isConnected) await this.init();
-        return await this.db.collection.distinct(key, { ...filter }, { ...commandOptions });
+        return await this.db.collection.distinct(key, { ...filter }, { ...commandOperationOptions });
     }
-    async aggregate(pipeline, options) {
+    async aggregate(pipeline, aggregateOptions) {
         if (!this.isConnected) await this.init();
-        return await this.db.collection.aggregate([...pipeline], { ...options });
+        return await this.db.collection.aggregate([...pipeline], { ...aggregateOptions });
     }
     async bulkWrite(operations, options) {
         if (!this.isConnected) await this.init();
