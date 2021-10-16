@@ -132,14 +132,26 @@ class Server {
         if (req.setHeaders) res.set(req.setHeaders);
         res.sendStatus(req.sendStatus);
     };
-    // set access db connection
-    setAccessDb = (req, accessDb) => {
+    // set access permissions db connection
+    setModelPermissions = (req, accessDb) => {
         if (!accessDb) throw new Error(`Error: <access> db connection config not found!`);
         accessDb.controller = 'permissions';
         req.server.Permissions = require('../db/model')(accessDb);
     };
+    // set access logs db connection
+    setModelLogs = (req, accessDb) => {
+        if (!accessDb) throw new Error(`Error: <access> db connection config not found!`);
+        accessDb.controller = 'logs';
+        req.server.Logs = require('../db/model')(accessDb);
+    };
+    // set access errors db connection
+    setModelErrors = (req, accessDb) => {
+        if (!accessDb) throw new Error(`Error: <access> db connection config not found!`);
+        accessDb.controller = 'errors';
+        req.server.Errors = require('../db/model')(accessDb);
+    };
     // set Model
-    setModel = (req) => {
+    setRequestModel = (req) => {
         if (!req.dbConnection) throw new Error(`Error: <${req.site.database}> db connection config not found!`);
         // in api controller is db table or collection
         req.dbConnection.controller = req.site.controller;
