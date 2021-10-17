@@ -150,7 +150,7 @@ class Server {
         accessDb.controller = 'errors';
         req.server.Errors = require('../db/model')(accessDb);
     };
-    // set Model
+    // set Model db connection
     setRequestModel = (req) => {
         if (!req.dbConnection) throw new Error(`Error: <${req.site.database}> db connection config not found!`);
         // in api controller is db table or collection
