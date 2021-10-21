@@ -18,7 +18,6 @@ class Model extends DB {
     select = (table, fromDb) => this.getDb(fromDb).then((db) => db.collection(table)); // alias
     // interface methods to the driver
     async init() {
-        console.log(this.connection.controller);
         if (!this.isConnected) {
             await this.connect()
                 .then((connected) => Object.assign(this, connected))
