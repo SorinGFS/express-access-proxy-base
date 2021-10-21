@@ -6,16 +6,25 @@ const orm = require('./orm');
 
 // Many methods in the MongoDB driver will return a promise
 class Model extends DB {
+    // connect() method is connector specific and is inherited through dynamic DB model
     constructor(connection) {
         super(connection);
         Object.assign(this, jsonSchema, { orm });
     }
+    // direct access to the driver methods
+    getClient = async () => this.client || (await this.connect().then((result) => result.client));
+    getDb = (db) => this.getClient().then((client) => client.db(db));
+    getController = (controller, db) => this.getDb(db).then((db) => db.collection(controller));
+    select = (table, fromDb) => this.getDb(fromDb).then((db) => db.collection(table)); // alias
+    // interface methods to the driver
     async init() {
+        console.log(this.connection.controller);
         if (!this.isConnected) {
             await this.connect()
-            .then(() => (this.db = this.client.db(this.connection.database)))
-            .then(() => (this.db.collection = this.db.collection(this.connection.controller)))
-            .then(() => (this.isConnected = true));
+                .then((connected) => Object.assign(this, connected))
+                .then(() => (this.db = this.client.db(this.connection.database)))
+                .then(() => (this.db.collection = this.db.collection(this.connection.controller)))
+                .then(() => (this.isConnected = true));
         }
     }
     async close() {

@@ -49,6 +49,7 @@ class Server {
                 return payload;
             };
             this.auth.jwt.login = async (req, providerToken) => {
+                req.accessDbConnection.controller = 'permissions';
                 const payload = this.auth.jwt.payload(providerToken);
                 const filter = { user: { ...payload } };
                 if (req.server.auth.bindCsrs) filter.user.csrs = req.cookies.csrs;
@@ -57,25 +58,27 @@ class Server {
                 const expiresAtSeconds = req.server.auth.mode === 'refreshTokens' ? req.server.auth.refreshInSeconds : req.server.auth.maxInactivitySeconds;
                 const update = { token: providerToken, issuedAt: new Date(), expiresAt: new Date(Date.now() + expiresAtSeconds * 1000) };
                 if (req.server.auth.mode === 'refreshTokens') update.refresh = fn.generateUUID();
-                req.server.Permissions.upsertOne(filter, update);
+                req.accessDb.upsertOne(filter, update);
                 return { jwt: this.auth.jwt.sign(payload), refresh: update.refresh };
             };
             this.auth.jwt.refresh = async (req) => {
+                req.accessDbConnection.controller = 'permissions';
                 const filter = { refresh: req.body.refresh };
-                const permission = await req.server.Permissions.findOne(filter);
+                const permission = await req.accessDb.findOne(filter);
                 if (!permission) throw createError.Forbidden();
                 if (permission.expiresAt < new Date()) {
-                    req.server.Permissions.deleteOne(filter);
+                    req.accessDb.deleteOne(filter);
                     throw createError.Unauthorized();
                 }
                 const token = req.body.jwt;
                 return { jwt: this.auth.jwt.resign(token), refresh: req.body.refresh };
             };
             this.auth.jwt.permission = async (req) => {
+                req.accessDbConnection.controller = 'permissions';
                 // since this app handles multiple hosts the user.id is not unique, so an extra field is required to uniquely identify the login
                 // if fingerprint was used user can login from a single fingerprint (it also protects it against captured token)
                 const filter = { user: req.user };
-                const permission = await req.server.Permissions.findOne(filter);
+                const permission = await req.accessDb.findOne(filter);
                 // permission already cleared from db (usually this error can appear only in API testing clients, since )
                 if (!permission) throw createError(403, 'Invalid credentials.');
                 // validate permission (if JWT expiresIn is used expiresAt will not extend that time)
@@ -92,12 +95,14 @@ class Server {
                 }
             };
             this.auth.jwt.slideExpiration = async (req) => {
+                req.accessDbConnection.controller = 'permissions';
                 const filter = { user: req.user };
-                return await req.server.Permissions.upsertOne(filter, { expiresAt: new Date(Date.now() + req.server.auth.maxInactivitySeconds * 1000) });
+                return await req.accessDb.upsertOne(filter, { expiresAt: new Date(Date.now() + req.server.auth.maxInactivitySeconds * 1000) });
             };
             this.auth.jwt.logout = async (req) => {
+                req.accessDbConnection.controller = 'permissions';
                 const filter = { user: req.user };
-                return await req.server.Permissions.deleteOne(filter);
+                return await req.accessDb.deleteOne(filter);
             };
             this.auth.jwt.user = (req, token) => {
                 let user;
@@ -132,30 +137,29 @@ class Server {
         if (req.setHeaders) res.set(req.setHeaders);
         res.sendStatus(req.sendStatus);
     };
-    // set access permissions db connection
-    setModelPermissions = (req, accessDb) => {
-        if (!accessDb) throw new Error(`Error: <access> db connection config not found!`);
-        accessDb.controller = 'permissions';
-        req.server.Permissions = require('../db/model')(accessDb);
+    // get dynamic Model
+    getModel = (connection) => require('../db/model')(connection);
+    // set dynamic Model
+    db = (ctx) => {
+        if (!ctx || !ctx.connection) return;
+        if (ctx.state && ctx.state.controller) ctx.connection.controller = ctx.state.controller;
+        return this.getModel(ctx.connection);
     };
-    // set access logs db connection
-    setModelLogs = (req, accessDb) => {
-        if (!accessDb) throw new Error(`Error: <access> db connection config not found!`);
-        accessDb.controller = 'logs';
-        req.server.Logs = require('../db/model')(accessDb);
+    // setCtxState
+    setCtxController = (ctx, controller) => {
+        ctx.state.controller = controller;
+        return ctx;
     };
-    // set access errors db connection
-    setModelErrors = (req, accessDb) => {
-        if (!accessDb) throw new Error(`Error: <access> db connection config not found!`);
-        accessDb.controller = 'errors';
-        req.server.Errors = require('../db/model')(accessDb);
+    // set server accessDb
+    setAccessDb = (req) => {
+        if (!req.accessDbConnection) throw new Error(`Error: => access <= db connection config not found!`);
+        req.accessDb = this.getModel(req.accessDbConnection);
     };
-    // set Model db connection
+    // set request Model
     setRequestModel = (req) => {
         if (!req.dbConnection) throw new Error(`Error: <${req.site.database}> db connection config not found!`);
-        // in api controller is db table or collection
         req.dbConnection.controller = req.site.controller;
-        req.Model = require('../db/model')(req.dbConnection);
+        req.Model = this.getModel(req.dbConnection);
     };
     // combine server and location rules
     parseLocations = (req) => {
