@@ -164,33 +164,41 @@ class Server {
     // combine server and location rules
     parseLocations = (req) => {
         if (req.server.locations) {
-            req.server.locations.some((location) => {
-                Object.keys(location).some((path) => {
+            return req.server.locations.some((location) => {
+                return Object.keys(location).some((path) => {
                     req.sendStatus = 0;
                     if (new RegExp(path, location[path].regexFlags).test(req.path)) {
                         if (location[path].urlRewrite) {
                             if (location[path].return) req.sendStatus = location[path].return;
-                            this.rewrite(req, location[path].urlRewrite, true);
+                            // return true here to avoid applying the settings (except for the break flag)
+                            if (this.rewrite(req, location[path].urlRewrite)) return true;
                         }
                         req.server = fn.mergeDeep({}, req.server, location[path]);
+                        return true;
                     }
+                    return false;
                 });
             });
         }
+        return false;
     };
     // url rewrite, syntax: [regex, replacement, breakingFlag?, regexFlags?] or arrays of the same format
-    rewrite = (req, rules, inLocation) => {
+    rewrite = (req, rules) => {
         // if rules not array of arrays convert them to it
         if (!Array.isArray(rules[0])) rules = [rules];
-        rules.some((rule) => {
+        // prevent infinite loops in case of wrong rules, this also limits to 10 the rewrite rules array
+        if (!req.rewriteCycles) req.rewriteCycles = 0;
+        if (++req.rewriteCycles && req.rewriteCycles > 10) return true;
+        // returns true if the loop was interrupted and false if not
+        return rules.some((rule) => {
             // rewrite the url
             req.url = req.url.replace(new RegExp(rule[0], rule[3]), rule[1]);
             // meaning: has breaking flag
             if (rule[2]) {
-                // meaning: found the right path, rescan locations to find its settings
-                if (rule[2] === 'last') return inLocation ? this.parseLocations(req) : true;
-                // meaning: found, this is the path, apply settings
-                if (rule[2] === 'break') return true;
+                // meaning: location is NOT in the right path, rewrite the url, rescan locations for a match, apply its settings
+                if (rule[2] === 'last') return this.parseLocations(req);
+                // meaning: location is in the right path, loop all rules to rewrite the url, then apply path settings
+                if (rule[2] === 'break') return false;
                 // meaning: found, send 302 temporary redirect to new url
                 if (rule[2] === 'redirect') return Object.assign(req, { sendStatus: 302, setHeaders: { Location: req.url } });
                 // meaning: found, send 301 permanent redirect to new url
