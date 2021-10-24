@@ -8,6 +8,25 @@ module.exports = {
     atob: (b64Encoded) => {
         return Buffer.from(b64Encoded, 'base64').toString('utf8');
     },
+    getPasswordHash: async (password) => {
+        return new Promise((resolve, reject) => {
+            // generate random 16 bytes long salt
+            const salt = require('crypto').randomBytes(16).toString('hex');
+            require('crypto').scrypt(password, salt, 64, (err, derivedKey) => {
+                if (err) reject(err);
+                resolve(salt + ':' + derivedKey.toString('hex'));
+            });
+        });
+    },
+    isMatchPasswordHash: (password, hash) => {
+        return new Promise((resolve, reject) => {
+            const [salt, key] = hash.split(':');
+            require('crypto').scrypt(password, salt, 64, (err, derivedKey) => {
+                if (err) reject(err);
+                resolve(require('crypto').timingSafeEqual(Buffer.from(key, 'hex'), derivedKey));
+            });
+        });
+    },
     uniqueArray: (array) => {
         if (!Array.isArray(array)) throw new TypeError(`Not an array: ${array}`);
         return [...new Set(array)];
