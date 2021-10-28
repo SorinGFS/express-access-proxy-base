@@ -48,15 +48,16 @@ class Server {
                 delete payload.jti;
                 return payload;
             };
-            this.auth.jwt.login = async (req, providerToken) => {
+            this.auth.jwt.login = async (req, providerToken, providerUser) => {
                 req.accessDbConnection.controller = 'permissions';
                 const payload = this.auth.jwt.payload(providerToken);
-                const filter = { user: { ...payload } };
-                if (req.server.auth.bindCsrs) filter.user.csrs = req.cookies.csrs;
-                if (req.server.auth.bindProvider) filter.user.provider = req.server.auth.provider;
-                if (req.server.auth.bindFingerprint) filter.user.fingerprintHash = req.fingerprint.hash;
+                const filter = { authenticated: { ...payload } };
+                if (req.server.auth.bindCsrs) filter.authenticated.csrs = req.cookies.csrs;
+                if (req.server.auth.bindProvider) filter.authenticated.provider = req.server.auth.provider;
+                if (req.server.auth.bindFingerprint) filter.authenticated.fingerprintHash = req.fingerprint.hash;
                 const expiresAtSeconds = req.server.auth.mode === 'refreshTokens' ? req.server.auth.refreshInSeconds : req.server.auth.maxInactivitySeconds;
                 const update = { token: providerToken, issuedAt: new Date(), expiresAt: new Date(Date.now() + expiresAtSeconds * 1000) };
+                if (req.server.auth.provider.trusted) Object.assign(update, { user: providerUser });
                 if (req.server.auth.mode === 'refreshTokens') update.refresh = fn.generateUUID();
                 req.accessDb.upsertOne(filter, update);
                 return { jwt: this.auth.jwt.sign(payload), refresh: update.refresh };
@@ -75,9 +76,9 @@ class Server {
             };
             this.auth.jwt.permission = async (req) => {
                 req.accessDbConnection.controller = 'permissions';
-                // since this app handles multiple hosts the user.id is not unique, so an extra field is required to uniquely identify the login
-                // if fingerprint was used user can login from a single fingerprint (it also protects it against captured token)
-                const filter = { user: req.user };
+                // since this app handles multiple hosts the authenticated.id is not unique, so an extra field is required to uniquely identify the login
+                // if fingerprint was used authenticated user can login from a single fingerprint (it also protects it against captured token)
+                const filter = { authenticated: req.authenticated };
                 const permission = await req.accessDb.findOne(filter);
                 // permission already cleared from db (usually this error can appear only in API testing clients, since )
                 if (!permission) throw createError(403, 'Invalid credentials.');
@@ -96,28 +97,28 @@ class Server {
             };
             this.auth.jwt.slideExpiration = async (req) => {
                 req.accessDbConnection.controller = 'permissions';
-                const filter = { user: req.user };
+                const filter = { authenticated: req.authenticated };
                 return await req.accessDb.upsertOne(filter, { expiresAt: new Date(Date.now() + req.server.auth.maxInactivitySeconds * 1000) });
             };
             this.auth.jwt.logout = async (req) => {
                 req.accessDbConnection.controller = 'permissions';
-                const filter = { user: req.user };
+                const filter = { authenticated: req.authenticated };
                 return await req.accessDb.deleteOne(filter);
             };
-            this.auth.jwt.user = (req, token) => {
-                let user;
+            this.auth.jwt.authenticate = (req, token) => {
+                let authenticated;
                 try {
-                    user = this.auth.jwt.verify(token);
-                    delete user.iat;
-                    delete user.nbf;
-                    delete user.exp;
-                    delete user.iss;
-                    delete user.aud;
-                    delete user.sub;
-                    delete user.jti;
-                    if (req.server.auth.bindCsrs) user.csrs = req.cookies.csrs;
-                    if (req.server.auth.bindProvider) user.provider = req.server.auth.provider;
-                    if (req.server.auth.bindFingerprint) user.fingerprintHash = req.fingerprint.hash;
+                    authenticated = this.auth.jwt.verify(token);
+                    delete authenticated.iat;
+                    delete authenticated.nbf;
+                    delete authenticated.exp;
+                    delete authenticated.iss;
+                    delete authenticated.aud;
+                    delete authenticated.sub;
+                    delete authenticated.jti;
+                    if (req.server.auth.bindCsrs) authenticated.csrs = req.cookies.csrs;
+                    if (req.server.auth.bindProvider) authenticated.provider = req.server.auth.provider;
+                    if (req.server.auth.bindFingerprint) authenticated.fingerprintHash = req.fingerprint.hash;
                 } catch (error) {
                     // replacing jwt errors with regular errors to reduce attack surface
                     if (/expired/.test(error)) {
@@ -128,7 +129,7 @@ class Server {
                         throw createError(error);
                     }
                 }
-                return user;
+                return authenticated;
             };
         }
     }
