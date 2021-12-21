@@ -1,12 +1,13 @@
 'use strict';
 // This is a custom implementation of Auth0's JsonWebToken library: https://github.com/auth0/node-jsonwebtoken
-const fn = require('../fn');
+const fs = require('../../fs');
+const fn = require('../../fn');
 const jwt = require('jsonwebtoken');
 const createError = require('http-errors');
 
 class Server {
     constructor(configServer) {
-        Object.assign(this, configServer);
+        Object.assign(this, configServer, { fs, fn });
         if (!this.site) this.site = {};
         if (this.auth) {
             if (!this.auth.jwt) this.auth.jwt = {};
@@ -49,7 +50,7 @@ class Server {
                 return payload;
             };
             this.auth.jwt.login = async (req, providerToken, providerUser) => {
-                req.accessDbConnection.controller = 'permissions';
+                req.accessDb.connection.controller = 'permissions';
                 const payload = this.auth.jwt.payload(providerToken);
                 const filter = { authenticated: { ...payload } };
                 if (req.server.auth.bindCsrs) filter.authenticated.csrs = req.cookies.csrs;
@@ -58,12 +59,12 @@ class Server {
                 const expiresAtSeconds = req.server.auth.mode === 'refreshTokens' ? req.server.auth.refreshInSeconds : req.server.auth.maxInactivitySeconds;
                 const update = { token: providerToken, issuedAt: new Date(), expiresAt: new Date(Date.now() + expiresAtSeconds * 1000) };
                 if (req.server.auth.provider.trusted) Object.assign(update, { user: providerUser });
-                if (req.server.auth.mode === 'refreshTokens') update.refresh = fn.generateUUID();
+                if (req.server.auth.mode === 'refreshTokens') update.refresh = this.fn.generateUUID();
                 req.accessDb.upsertOne(filter, update);
                 return { jwt: this.auth.jwt.sign(payload), refresh: update.refresh };
             };
             this.auth.jwt.refresh = async (req) => {
-                req.accessDbConnection.controller = 'permissions';
+                req.accessDb.connection.controller = 'permissions';
                 const filter = { refresh: req.body.refresh };
                 const permission = await req.accessDb.findOne(filter);
                 if (!permission) throw createError.Forbidden();
@@ -75,7 +76,7 @@ class Server {
                 return { jwt: this.auth.jwt.resign(token), refresh: req.body.refresh };
             };
             this.auth.jwt.permission = async (req) => {
-                req.accessDbConnection.controller = 'permissions';
+                req.accessDb.connection.controller = 'permissions';
                 // since this app handles multiple hosts the authenticated.id is not unique, so an extra field is required to uniquely identify the login
                 // if fingerprint was used authenticated user can login from a single fingerprint (it also protects it against captured token)
                 const filter = { authenticated: req.authenticated };
@@ -96,12 +97,12 @@ class Server {
                 }
             };
             this.auth.jwt.slideExpiration = async (req) => {
-                req.accessDbConnection.controller = 'permissions';
+                req.accessDb.connection.controller = 'permissions';
                 const filter = { authenticated: req.authenticated };
                 return await req.accessDb.upsertOne(filter, { expiresAt: new Date(Date.now() + req.server.auth.maxInactivitySeconds * 1000) });
             };
             this.auth.jwt.logout = async (req) => {
-                req.accessDbConnection.controller = 'permissions';
+                req.accessDb.connection.controller = 'permissions';
                 const filter = { authenticated: req.authenticated };
                 return await req.accessDb.deleteOne(filter);
             };
@@ -133,34 +134,16 @@ class Server {
             };
         }
     }
+    // get api's method and arguments required to perform the rest request
+    getApi = (restApi, ctx) => Promise.resolve(restApi.filter((item) => this.fn.isExactContextMatch(ctx, item.rest))[0].api);
+    // get dynamic Model
+    getModel = (connection) => require('./db/model')(connection);
+    // set dynamic Model
+    setModel = (connection) => this.getModel(connection);
     // direct response
     send = (req, res) => {
         if (req.setHeaders) res.set(req.setHeaders);
         res.sendStatus(req.sendStatus);
-    };
-    // get dynamic Model
-    getModel = (connection) => require('../db/model')(connection);
-    // set dynamic Model
-    db = (ctx) => {
-        if (!ctx || !ctx.connection) return;
-        if (ctx.state && ctx.state.controller) ctx.connection.controller = ctx.state.controller;
-        return this.getModel(ctx.connection);
-    };
-    // setCtxState
-    setCtxController = (ctx, controller) => {
-        ctx.state.controller = controller;
-        return ctx;
-    };
-    // set server accessDb
-    setAccessDb = (req) => {
-        if (!req.accessDbConnection) throw new Error(`Error: => access <= db connection config not found!`);
-        req.accessDb = this.getModel(req.accessDbConnection);
-    };
-    // set request Model
-    setRequestModel = (req) => {
-        if (!req.dbConnection) throw new Error(`Error: <${req.site.database}> db connection config not found!`);
-        req.dbConnection.controller = req.site.controller;
-        req.Model = this.getModel(req.dbConnection);
     };
     // combine server and location rules
     parseLocations = (req) => {
@@ -174,7 +157,7 @@ class Server {
                             // return true here to avoid applying the settings (except for the break flag)
                             if (this.rewrite(req, location[path].urlRewrite)) return true;
                         }
-                        req.server = fn.mergeDeep({}, req.server, location[path]);
+                        req.server = this.fn.mergeDeep({}, req.server, location[path]);
                         return true;
                     }
                     return false;

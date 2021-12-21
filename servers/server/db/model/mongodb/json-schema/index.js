@@ -3,28 +3,19 @@
 // An easier working method for passing json data to db would be to get the bson validation schema in frontend, to serialize
 // the data there based on validation schema and here just to replace the given expressions with bson types. But that method
 // would be error prone and an extra convern for the webmaster.
-const fn = require('../../../fn');
+const fn = require('../../../../../../fn');
 const { ObjectId, Int32, Long, Double, Decimal128, BSONRegExp, Code, Binary } = require('mongodb');
 
 const topLevelKeys = ['$and', '$or', '$nor'];
-const isTopLevelKey = (key) => {
-    if (topLevelKeys.includes(key)) return true;
-    return false;
-};
+const isTopLevelKey = (key) => (topLevelKeys.includes(key) ? true : false);
 
 // const allowedTypeConversionAggregateStages = ['$facet', '$match', '$set'];
 const deniedTypeConversionAggregateStages = ['$addFields', '$bucket', '$bucketAuto', '$collStats', '$count', '$currentOp', '$geoNear', '$graphLookup', '$group', '$indexStats', '$limit', '$listLocalSessions', '$listSessions', '$lookup', '$merge', '$out', '$planCacheStats', '$project', '$redact', '$replaceRoot', '$replaceWith', '$sample', '$search', '$setWindowFields', '$skip', '$sort', '$sortByCount', '$unionWith', '$unset', '$unwind'];
 const deniedTypeConversionMidLevelKeys = [].concat(deniedTypeConversionAggregateStages);
-const isDeniedTypeConversionMidLevelKey = (key) => {
-    if (key.charAt(0) === '$' && deniedTypeConversionMidLevelKeys.includes(key)) return true;
-    return false;
-};
+const isDeniedTypeConversionMidLevelKey = (key) => (key.charAt(0) === '$' && deniedTypeConversionMidLevelKeys.includes(key) ? true : false);
 
 const allowedTypeConversionLowLevelKeys = ['$eq', '$ne', '$gt', '$gte', '$lt', '$lte'];
-const isAllowedTypeConversionLowLevelKey = (key) => {
-    if (allowedTypeConversionLowLevelKeys.includes(key)) return true;
-    return false;
-};
+const isAllowedTypeConversionLowLevelKey = (key) => (allowedTypeConversionLowLevelKeys.includes(key) ? true : false);
 
 const jsonToBson = (value, bsonType) => {
     if (bsonType === 'object') return value;
@@ -147,7 +138,7 @@ const serialize = (data, schema) => {
     }
 };
 
-// data may have the following forms: object, array of objects, or array of arrays of objects
+// data may have the following forms: object. Make this function available in frontend!
 const deserialize = (data) => {
     const types = ['$numberDecimal'];
     const parser = (parent, key) => {

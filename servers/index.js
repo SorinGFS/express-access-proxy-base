@@ -8,20 +8,6 @@ module.exports = (serverConfigs) => {
     // prepare server auth options and JWT according config
     const preparedServers = [];
     serverConfigs.forEach((config) => {
-        // auth configuration not allowed at location level except auth.mode and only if switches the main setting
-        function locationAuthCleanup(auth) {
-            let putItBack;
-            if (typeof auth.mode !== 'undefined' && auth.mode !== config.server.auth.mode) {
-                if (!config.server.auth.mode) putItBack = auth.mode;
-                if (config.server.auth.mode && !auth.mode) putItBack = auth.mode;
-            }
-            auth = {};
-            if (putItBack !== undefined) auth.mode = putItBack;
-            return [{ auth: auth }];
-        }
-        if (config.server.locations) {
-            fn.parseDeepKey(config.server.locations, 'auth', locationAuthCleanup);
-        }
         // analize each auth and update jwt according given settings
         function setAuth(auth) {
             if (!auth.jwt) auth.jwt = {};
@@ -37,7 +23,7 @@ module.exports = (serverConfigs) => {
                 auth.maxInactivitySeconds = 1800; // 30m
             }
             if (!auth.refreshInSeconds) {
-                auth.refreshInSeconds = 84600; // 1d
+                auth.refreshInSeconds = 86400; // 1d
             }
             if (auth.algorithm) {
                 auth.jwt.signOptions.algorithm = auth.algorithm;
@@ -102,6 +88,19 @@ module.exports = (serverConfigs) => {
             return [{ auth: auth }];
         }
         fn.parseDeepKey(config.server, 'auth', setAuth);
+        // auth configuration not allowed at location level except auth.mode and only if switches the main setting
+        function locationAuthCleanup(auth) {
+            let putItBack;
+            if (typeof auth.mode !== 'undefined' && auth.mode !== config.server.auth.mode) {
+                if (!config.server.auth.mode) putItBack = auth.mode;
+                if (config.server.auth.mode && !auth.mode) putItBack = auth.mode;
+            }
+            auth = {};
+            if (putItBack !== undefined) auth.mode = putItBack;
+            return [{ auth: auth }];
+        }
+        if (config.server.locations) fn.parseDeepKey(config.server.locations, 'auth', locationAuthCleanup);
+        // add prepared server
         preparedServers.push({ serverName: config.serverName, server: config.server });
     });
     // serializing serverName

@@ -1,13 +1,7 @@
 'use strict';
 // remember: typeof null === 'object';
 module.exports = {
-    btoa: (decoded) => {
-        if (Array.isArray(decoded)) return Buffer.from(decoded.join(','), 'binary').toString('base64').replace(/=.*$/, '');
-        return Buffer.from(decoded, 'binary').toString('base64').replace(/=.*$/, '');
-    },
-    atob: (b64Encoded) => {
-        return Buffer.from(b64Encoded, 'base64').toString('utf8');
-    },
+    // get the hash of a given password
     getPasswordHash: async (password) => {
         return new Promise((resolve, reject) => {
             // generate random 16 bytes long salt
@@ -18,6 +12,7 @@ module.exports = {
             });
         });
     },
+    // test if the given password is matching the stored hash
     isMatchPasswordHash: (password, hash) => {
         return new Promise((resolve, reject) => {
             const [salt, key] = hash.split(':');
@@ -27,9 +22,47 @@ module.exports = {
             });
         });
     },
-    uniqueArray: (array) => {
-        if (!Array.isArray(array)) throw new TypeError(`Not an array: ${array}`);
-        return [...new Set(array)];
+    // base64 encode
+    btoa: (decoded) => {
+        if (Array.isArray(decoded)) return Buffer.from(decoded.join(','), 'binary').toString('base64').replace(/=.*$/, '');
+        return Buffer.from(decoded, 'binary').toString('base64').replace(/=.*$/, '');
+    },
+    // base64 decode
+    atob: (b64Encoded) => Buffer.from(b64Encoded, 'base64').toString('utf8'),
+    // filter array unique elements
+    uniqueArray: (array) => Array.isArray(array) && [...new Set(array)],
+    // test if string is numeric
+    isNumeric: (string) => !isNaN(parseFloat(string)) && isFinite(string),
+    // test if type is object but not array
+    isObjectNotArray: (object) => object && typeof object === 'object' && !Array.isArray(object),
+    // test if a given context fits in a larger context
+    isContextMatch: (ctx, match, minMatchKeys = 1) => {
+        return typeof ctx === 'object' && typeof match === 'object' && Object.keys(match).length >= minMatchKeys && Object.keys(match).reduce((acc, key) => acc && match[key] == ctx[key], true);
+    },
+    // test if a given context fits in a larger context including types
+    isExactContextMatch: (ctx, match, minMatchKeys = 1) => {
+        return typeof ctx === 'object' && typeof match === 'object' && Object.keys(match).length >= minMatchKeys && Object.keys(match).reduce((acc, key) => acc && match[key] === ctx[key], true);
+    },
+    // test if a given contexts array has a fit in a larger context
+    hasContextMatch: (ctx, matches, minMatchKeys = 1) => {
+        return typeof ctx === 'object' && Array.isArray(matches) && Object.keys(matches).reduce((acc, index) => acc || (typeof matches[index] === 'object' && Object.keys(matches[index]).length >= minMatchKeys && Object.keys(matches[index]).reduce((acc, key) => acc && matches[index][key] == ctx[key], true)), false);
+    },
+    // test if a given contexts array has a fit in a larger context including types
+    hasExactContextMatch: (ctx, matches, minMatchKeys = 1) => {
+        return typeof ctx === 'object' && Array.isArray(matches) && Object.keys(matches).reduce((acc, index) => acc || (typeof matches[index] === 'object' && Object.keys(matches[index]).length >= minMatchKeys && Object.keys(matches[index]).reduce((acc, key) => acc && matches[index][key] === ctx[key], true)), false);
+    },
+    // test if a given contexts array has a fit in a larger context
+    hasContextMatches: function (ctx, matches, minMatchKeys = 1) {
+        return typeof ctx === 'object' && Array.isArray(matches) && matches.reduce((acc, item) => (acc ? acc : (typeof item === 'object' && Object.keys(item).reduce((acc, key) => acc && typeof item[key] === 'object' && this.isContextMatch(ctx[key], item[key], minMatchKeys), true))), false);
+    },
+    // test if a given contexts array has a fit in a larger context including types
+    hasExactContextMatches: function (ctx, matches, minMatchKeys = 1) {
+        return typeof ctx === 'object' && Array.isArray(matches) && matches.reduce((acc, item) => (acc ? acc : (typeof item === 'object' && Object.keys(item).reduce((acc, key) => acc && typeof item[key] === 'object' && this.isExactContextMatch(ctx[key], item[key], minMatchKeys), true))), false);
+    },
+    // map a table like data to a tree view, eg. const schema = (obj) => ({ [obj.category]: { [obj.month]: obj.total } });
+    treeViewArray: (target, parse) => {
+        if (!Array.isArray(target)) return {};
+        return Promise.resolve(target.reduce((acc, value) => this.mergeDeep(acc, parse(value)), {}));
     },
     // https://gist.github.com/jeneg/9767afdcca45601ea44930ea03e0febf
     get: (object, path, defaultValue = undefined) => {
@@ -43,12 +76,6 @@ module.exports = {
                 }
                 return data;
             }, object);
-    },
-    isNumeric: (string) => {
-        return !isNaN(parseFloat(string)) && isFinite(string);
-    },
-    isObjectNotArray: (item) => {
-        return item && typeof item === 'object' && !Array.isArray(item);
     },
     // returns merged objects, array keys are not merged instead the last array wins
     mergeDeep: function (target, ...sources) {
@@ -170,7 +197,7 @@ module.exports = {
     },
     // returns an array of dot notation keys or empty array
     getDeepDotNotationKeys: function (object) {
-        if (typeof object !== 'object') throw new Error('Not an object.');
+        if (typeof object !== 'object') return [];
         let keys = [];
         for (const key in object) {
             keys.push(key);
@@ -187,7 +214,7 @@ module.exports = {
     },
     // returns an array of dot notation sckema keys or empty array
     getDeepDotNotationSchemaKeys: function (object) {
-        if (typeof object !== 'object') throw new Error('Not an object.');
+        if (typeof object !== 'object') return [];
         let keys = [];
         for (const key in object) {
             keys.push(key);
@@ -219,6 +246,7 @@ module.exports = {
         }
         return result;
     },
+    // test a - b objects equality. Comparing objects this way is slow and wrong, use with care.
     areEqualObjects: (a, b) => {
         let s = (o) =>
             Object.entries(o)
@@ -229,9 +257,9 @@ module.exports = {
                 });
         return JSON.stringify(s(a)) === JSON.stringify(s(b));
     },
-    escapeRegExp: (string) => {
-        return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); // $& means the whole matched string
-    },
+    // escape regExp special characters in order to find them literally
+    escapeRegExp: (string) => string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), // $& means the whole matched string
+    // custom queryString parser, returns object or array
     parseQueryString: function (queryString, asArray) {
         let result = asArray ? [] : {};
         if (!queryString) return result;
@@ -260,11 +288,13 @@ module.exports = {
         }
         return result;
     },
+    // custom simple query stringify (will be revised)
     queryStringify: (object) => {
         return Object.keys(object)
             .map((key) => (object[key] == 'true' ? key : key + '=' + object[key]))
             .join('&');
     },
+    // merge queryStrings (will be revised)
     mergeQueryStrings: function (initial, upserts) {
         if (typeof upserts === 'string') {
             return this.queryStringify(Object.assign(this.parseQueryString(initial), this.parseQueryString(upserts)));
@@ -272,19 +302,21 @@ module.exports = {
             return this.queryStringify(Object.assign(this.parseQueryString(initial), upserts));
         }
     },
+    // convert string to decimal unicode points
     stringToDecimalUnicodePoints: (string) => {
         if (typeof string !== 'string') return [];
         return string.split('').map((char) => char.charCodeAt(0));
     },
+    // convert decimal unicode points to string
     decimalUnicodePointsToString: (unicodePoints) => {
         if (!(unicodePoints instanceof Array)) return '';
         return unicodePoints.map((i) => String.fromCharCode(i)).join('');
     },
-    //<!-- Capitalize -->
+    // Capitalize
     capitalizeFirstLetter: (string) => {
         return string.charAt(0).toUpperCase() + string.slice(1);
     },
-    //<!-- Camelcase array of strings -->
+    // Camelcase array of strings
     camelcaseStringArray: function (array) {
         if (array.constructor !== Array) return null;
         let result = array[0].toLowerCase();
@@ -293,6 +325,7 @@ module.exports = {
         }
         return result;
     },
+    // simple sleep in milliseconds (sync)
     sleep: (milliseconds) => {
         var start = new Date().getTime();
         for (var i = 0; i < 1e7; i++) {
@@ -301,6 +334,7 @@ module.exports = {
             }
         }
     },
+    // time in milliseconds (the same from PHP)
     microtime: (getAsFloat) => {
         var s, now, multiplier;
         if (typeof performance !== 'undefined' && performance.now) {
@@ -318,6 +352,7 @@ module.exports = {
         s = now | 0;
         return Math.round((now - s) * multiplier) / multiplier + ' ' + s;
     },
+    // generate UUID v4
     generateUUID: () => {
         // Public Domain/MIT
         var d = new Date().getTime(); //Timestamp
