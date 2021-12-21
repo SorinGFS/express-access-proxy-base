@@ -50,7 +50,6 @@ class Server {
                 return payload;
             };
             this.auth.jwt.login = async (req, providerToken, providerUser) => {
-                req.accessDb.connection.controller = 'permissions';
                 const payload = this.auth.jwt.payload(providerToken);
                 const filter = { authenticated: { ...payload } };
                 if (req.server.auth.bindCsrs) filter.authenticated.csrs = req.cookies.csrs;
@@ -60,27 +59,25 @@ class Server {
                 const update = { token: providerToken, issuedAt: new Date(), expiresAt: new Date(Date.now() + expiresAtSeconds * 1000) };
                 if (req.server.auth.provider.trusted) Object.assign(update, { user: providerUser });
                 if (req.server.auth.mode === 'refreshTokens') update.refresh = this.fn.generateUUID();
-                req.accessDb.upsertOne(filter, update);
+                req.accessDb.controller('permissions').upsertOne(filter, update);
                 return { jwt: this.auth.jwt.sign(payload), refresh: update.refresh };
             };
             this.auth.jwt.refresh = async (req) => {
-                req.accessDb.connection.controller = 'permissions';
                 const filter = { refresh: req.body.refresh };
-                const permission = await req.accessDb.findOne(filter);
+                const permission = await req.accessDb.controller('permissions').findOne(filter);
                 if (!permission) throw createError.Forbidden();
                 if (permission.expiresAt < new Date()) {
-                    req.accessDb.deleteOne(filter);
+                    req.accessDb.controller('permissions').deleteOne(filter);
                     throw createError.Unauthorized();
                 }
                 const token = req.body.jwt;
                 return { jwt: this.auth.jwt.resign(token), refresh: req.body.refresh };
             };
             this.auth.jwt.permission = async (req) => {
-                req.accessDb.connection.controller = 'permissions';
                 // since this app handles multiple hosts the authenticated.id is not unique, so an extra field is required to uniquely identify the login
                 // if fingerprint was used authenticated user can login from a single fingerprint (it also protects it against captured token)
                 const filter = { authenticated: req.authenticated };
-                const permission = await req.accessDb.findOne(filter);
+                const permission = await req.accessDb.controller('permissions').findOne(filter);
                 // permission already cleared from db (usually this error can appear only in API testing clients, since )
                 if (!permission) throw createError(403, 'Invalid credentials.');
                 // validate permission (if JWT expiresIn is used expiresAt will not extend that time)
@@ -97,14 +94,12 @@ class Server {
                 }
             };
             this.auth.jwt.slideExpiration = async (req) => {
-                req.accessDb.connection.controller = 'permissions';
                 const filter = { authenticated: req.authenticated };
-                return await req.accessDb.upsertOne(filter, { expiresAt: new Date(Date.now() + req.server.auth.maxInactivitySeconds * 1000) });
+                return await req.accessDb.controller('permissions').upsertOne(filter, { expiresAt: new Date(Date.now() + req.server.auth.maxInactivitySeconds * 1000) });
             };
             this.auth.jwt.logout = async (req) => {
-                req.accessDb.connection.controller = 'permissions';
                 const filter = { authenticated: req.authenticated };
-                return await req.accessDb.deleteOne(filter);
+                return await req.accessDb.controller('permissions').deleteOne(filter);
             };
             this.auth.jwt.authenticate = (req, token) => {
                 let authenticated;
