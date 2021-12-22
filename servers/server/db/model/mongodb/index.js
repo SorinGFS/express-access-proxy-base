@@ -29,8 +29,8 @@ class Model extends DB {
         return this._chain(this._init, arguments);
     }
     async _init(connection) {
-        if (connection) this.connection = connection;
-        if (!this.isConnected) {
+        if (!this.isConnected || connection) {
+            if (connection) this.connection = connection;
             Object.assign(this, await this.connect());
             this.isConnected = true;
         }
@@ -39,10 +39,9 @@ class Model extends DB {
         return this._chain(this._initDb, arguments);
     }
     async _initDb(db, connection) {
-        if (connection) this.connection = connection;
-        if (db) this.connection.database = db;
-        if (!this.isDbConnected) {
-            await this._init();
+        if (!this.isDbConnected || db) {
+            if (db) this.connection.database = db;
+            await this._init(connection);
             this._db = this.client.db(this.connection.database);
             this.isDbConnected = true;
         }
@@ -51,11 +50,9 @@ class Model extends DB {
         return this._chain(this._initAdmin, arguments);
     }
     async _initAdmin(db, connection) {
-        if (connection) this.connection = connection;
-        if (db) this.connection.database = db;
-        if (!this.isAdminConnected) {
-            await this._init();
-            await this._initDb();
+        if (!this.isAdminConnected || connection || db) {
+            await this._init(connection);
+            await this._initDb(db);
             this._db._admin = this._db.admin();
             this.isAdminConnected = true;
         }
@@ -64,12 +61,10 @@ class Model extends DB {
         return this._chain(this._initController, arguments);
     }
     async _initController(controller, db, connection) {
-        if (connection) this.connection = connection;
-        if (db) this.connection.database = db;
-        if (controller) this.connection.controller = controller;
-        if (!this.isControllerConnected) {
-            await this._init();
-            await this._initDb();
+        if (!this.isControllerConnected || controller) {
+            if (controller) this.connection.controller = controller;
+            await this._init(connection);
+            await this._initDb(db);
             this._db._collection = this._db.collection(this.connection.controller);
             this.isControllerConnected = true;
         }
