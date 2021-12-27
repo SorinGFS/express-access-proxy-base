@@ -35,29 +35,47 @@ module.exports = {
     isNumeric: (string) => !isNaN(parseFloat(string)) && isFinite(string),
     // test if type is object but not array
     isObjectNotArray: (object) => object && typeof object === 'object' && !Array.isArray(object),
+    // test if target array includes all the items from the compared array
+    includesArrayItems: (target, compared) => Array.isArray(target) && Array.isArray(compared) && compared.every((item) => target.includes(item)),
     // test if a given context fits in a larger context
     isContextMatch: (ctx, match, minMatchKeys = 1) => {
-        return typeof ctx === 'object' && typeof match === 'object' && Object.keys(match).length >= minMatchKeys && Object.keys(match).reduce((acc, key) => acc && match[key] == ctx[key], true);
+        return typeof ctx === 'object' && typeof match === 'object' && Object.keys(match).length >= minMatchKeys && Object.keys(match).reduce((acc, key) => acc && ctx[key] == match[key], true);
     },
     // test if a given context fits in a larger context including types
     isExactContextMatch: (ctx, match, minMatchKeys = 1) => {
-        return typeof ctx === 'object' && typeof match === 'object' && Object.keys(match).length >= minMatchKeys && Object.keys(match).reduce((acc, key) => acc && match[key] === ctx[key], true);
+        return typeof ctx === 'object' && typeof match === 'object' && Object.keys(match).length >= minMatchKeys && Object.keys(match).reduce((acc, key) => acc && ctx[key] === match[key], true);
     },
-    // test if a given contexts array has a fit in a larger context
+    // test if a given context fits in a larger context - any of array items if value - all of array items if array
+    isInContextMatch: function (ctx, match, minMatchKeys = 1) {
+        return typeof ctx === 'object' && typeof match === 'object' && Object.keys(match).length >= minMatchKeys && Object.keys(match).reduce((acc, key) => acc && (ctx[key] == match[key] || (Array.isArray(match[key]) && match[key].includes(ctx[key])) || this.includesArrayItems(ctx[key], match[key])), true);
+    },
+    // test if a given context fits in a larger context including types - any of array items if value - all of array items if array
+    isInExactContextMatch: function (ctx, match, minMatchKeys = 1) {
+        return typeof ctx === 'object' && typeof match === 'object' && Object.keys(match).length >= minMatchKeys && Object.keys(match).reduce((acc, key) => acc && (ctx[key] === match[key] || (Array.isArray(match[key]) && match[key].includes(ctx[key])) || this.includesArrayItems(ctx[key], match[key])), true);
+    },
+    // test if a given contexts array has a fit in a larger context - 1 level deep
     hasContextMatch: (ctx, matches, minMatchKeys = 1) => {
-        return typeof ctx === 'object' && Array.isArray(matches) && Object.keys(matches).reduce((acc, index) => acc || (typeof matches[index] === 'object' && Object.keys(matches[index]).length >= minMatchKeys && Object.keys(matches[index]).reduce((acc, key) => acc && matches[index][key] == ctx[key], true)), false);
+        return typeof ctx === 'object' && Array.isArray(matches) && Object.keys(matches).reduce((acc, index) => acc || (typeof matches[index] === 'object' && Object.keys(matches[index]).length >= minMatchKeys && Object.keys(matches[index]).reduce((acc, key) => acc && ctx[key] == matches[index][key], true)), false);
     },
-    // test if a given contexts array has a fit in a larger context including types
+    // test if a given contexts array has a fit in a larger context including types - 1 level deep
     hasExactContextMatch: (ctx, matches, minMatchKeys = 1) => {
-        return typeof ctx === 'object' && Array.isArray(matches) && Object.keys(matches).reduce((acc, index) => acc || (typeof matches[index] === 'object' && Object.keys(matches[index]).length >= minMatchKeys && Object.keys(matches[index]).reduce((acc, key) => acc && matches[index][key] === ctx[key], true)), false);
+        return typeof ctx === 'object' && Array.isArray(matches) && Object.keys(matches).reduce((acc, index) => acc || (typeof matches[index] === 'object' && Object.keys(matches[index]).length >= minMatchKeys && Object.keys(matches[index]).reduce((acc, key) => acc && ctx[key] === matches[index][key], true)), false);
     },
-    // test if a given contexts array has a fit in a larger context
-    hasContextMatches: function (ctx, matches, minMatchKeys = 1) {
-        return typeof ctx === 'object' && Array.isArray(matches) && matches.reduce((acc, item) => (acc ? acc : (typeof item === 'object' && Object.keys(item).reduce((acc, key) => acc && typeof item[key] === 'object' && this.isContextMatch(ctx[key], item[key], minMatchKeys), true))), false);
+    // test if a given contexts array has a fit in a larger context - 2 levels deep
+    hasContextsMatches: function (ctx, matches, minMatchKeys = 1) {
+        return typeof ctx === 'object' && Array.isArray(matches) && matches.reduce((acc, item) => (acc ? acc : typeof item === 'object' && Object.keys(item).reduce((acc, key) => acc && typeof item[key] === 'object' && this.isContextMatch(ctx[key], item[key], minMatchKeys), true)), false);
     },
-    // test if a given contexts array has a fit in a larger context including types
-    hasExactContextMatches: function (ctx, matches, minMatchKeys = 1) {
-        return typeof ctx === 'object' && Array.isArray(matches) && matches.reduce((acc, item) => (acc ? acc : (typeof item === 'object' && Object.keys(item).reduce((acc, key) => acc && typeof item[key] === 'object' && this.isExactContextMatch(ctx[key], item[key], minMatchKeys), true))), false);
+    // test if a given contexts array has a fit in a larger context including types - 2 levels deep
+    hasExactContextsMatches: function (ctx, matches, minMatchKeys = 1) {
+        return typeof ctx === 'object' && Array.isArray(matches) && matches.reduce((acc, item) => (acc ? acc : typeof item === 'object' && Object.keys(item).reduce((acc, key) => acc && typeof item[key] === 'object' && this.isExactContextMatch(ctx[key], item[key], minMatchKeys), true)), false);
+    },
+    // test if a given contexts array has a fit in a larger context - any of array items if value - all of array items if array
+    hasInContextsMatches: function (ctx, matches, minMatchKeys = 1) {
+        return typeof ctx === 'object' && Array.isArray(matches) && matches.reduce((acc, item) => (acc ? acc : typeof item === 'object' && Object.keys(item).reduce((acc, key) => acc && typeof item[key] === 'object' && this.isInContextMatch(ctx[key], item[key], minMatchKeys), true)), false);
+    },
+    // test if a given contexts array has a fit in a larger context including types - any of array items if value - all of array items if array
+    hasInExactContextsMatches: function (ctx, matches, minMatchKeys = 1) {
+        return typeof ctx === 'object' && Array.isArray(matches) && matches.reduce((acc, item) => (acc ? acc : typeof item === 'object' && Object.keys(item).reduce((acc, key) => acc && typeof item[key] === 'object' && this.isInExactContextMatch(ctx[key], item[key], minMatchKeys), true)), false);
     },
     // map a table like data to a tree view, eg. const schema = (obj) => ({ [obj.category]: { [obj.month]: obj.total } });
     treeViewArray: (target, parse) => {
