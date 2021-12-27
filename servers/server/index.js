@@ -59,7 +59,7 @@ class Server {
                 const update = { token: providerToken, issuedAt: new Date(), expiresAt: new Date(Date.now() + expiresAtSeconds * 1000) };
                 if (req.server.auth.provider.trusted) Object.assign(update, { user: providerUser });
                 if (req.server.auth.mode === 'refreshTokens') update.refresh = this.fn.generateUUID();
-                req.accessDb.controller('permissions').upsertOne(filter, update);
+                await req.accessDb.controller('permissions').upsertOne(filter, update);
                 return { jwt: this.auth.jwt.sign(payload), refresh: update.refresh };
             };
             this.auth.jwt.refresh = async (req) => {
@@ -67,7 +67,7 @@ class Server {
                 const permission = await req.accessDb.controller('permissions').findOne(filter);
                 if (!permission) throw createError.Forbidden();
                 if (permission.expiresAt < new Date()) {
-                    req.accessDb.controller('permissions').deleteOne(filter);
+                    await req.accessDb.controller('permissions').deleteOne(filter);
                     throw createError.Unauthorized();
                 }
                 const token = req.body.jwt;
