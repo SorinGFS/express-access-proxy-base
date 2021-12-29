@@ -13,8 +13,11 @@ module.exports = {
     pathJoin: function (...args) {
         return path.join(...args);
     },
-    files: function (...pathResolveArgs) {
+    entries: function (...pathResolveArgs) {
         return fs.readdirSync(path.resolve(...pathResolveArgs));
+    },
+    changeMe: function (...pathResolveArgs) {
+        return fs.readdirSync(path.resolve(...pathResolveArgs)).filter((file) => fs.lstatSync(path.resolve(...pathResolveArgs, file)).isFile());
     },
     dirs: function (...pathResolveArgs) {
         return fs.readdirSync(path.resolve(...pathResolveArgs)).filter((file) => fs.lstatSync(path.resolve(...pathResolveArgs, file)).isDirectory());
@@ -25,15 +28,57 @@ module.exports = {
     exists: function (...pathResolveArgs) {
         return fs.existsSync(path.resolve(...pathResolveArgs));
     },
+    isFile: function (...pathResolveArgs) {
+        return this.exists(...pathResolveArgs) && fs.lstatSync(path.resolve(...pathResolveArgs)).isFile()
+    },
+    isDirectory: function (...pathResolveArgs) {
+        return this.exists(...pathResolveArgs) && fs.lstatSync(path.resolve(...pathResolveArgs)).isDirectory()
+    },
+    isLink: function (...pathResolveArgs) {
+        return this.exists(...pathResolveArgs) && fs.lstatSync(path.resolve(...pathResolveArgs)).isSymbolicLink()
+    },
+    isSocket: function (...pathResolveArgs) {
+        return this.exists(...pathResolveArgs) && fs.lstatSync(path.resolve(...pathResolveArgs)).isSocket()
+    },
     readFile: function (...pathResolveArgs) {
         return fs.readFileSync(path.resolve(...pathResolveArgs));
     },
     link: function (target, link) {
+        // if target is dir use linkDir function
+        if (fs.lstatSync(target).isDirectory()) return this.linkDir(target, link);
         // unlink if different
         try {
             const bufTarget = fs.readFileSync(target);
             const bufLink = fs.readFileSync(link);
             if (bufTarget.equals(bufLink)) {
+                return;
+            } else {
+                this.unlink(link);
+            }
+        } catch (error) {
+            console.log(`Linking ${target}...`);
+        }
+        // if reached here file is not linked
+        try {
+            fs.symlinkSync(target, link);
+        } catch (error) {
+            console.log(error.message);
+        }
+    },
+    linkDir: function (target, link) {
+        // if target is file use link function
+        if (fs.lstatSync(target).isFile()) return this.link(target, link);
+        // unlink if there is no match
+        try {
+            let bufTarget, bufLink, found;
+            ['index.js', 'index.json', 'index.cjs', 'index.mjs'].forEach((file) => {
+                if (this.exists(target, file)) {
+                    bufTarget = fs.readFileSync(path.resolve(target, file));
+                    bufLink = fs.readFileSync(path.resolve(link, file));
+                    if (bufTarget.equals(bufLink)) found = true;
+                }
+            });
+            if (found) {
                 return;
             } else {
                 this.unlink(link);
@@ -111,14 +156,15 @@ module.exports = {
         });
     },
     removeDirContent: function (...pathResolveArgs) {
+        let entries;
         try {
-            var files = fs.readdirSync(path.resolve(...pathResolveArgs));
+            entries = fs.readdirSync(path.resolve(...pathResolveArgs));
         } catch (e) {
             return;
         }
-        if (files.length > 0) {
-            for (var i = 0; i < files.length; i++) {
-                var filePath = path.resolve(...pathResolveArgs, files[i]);
+        if (entries.length > 0) {
+            for (let i = 0; i < entries.length; i++) {
+                const filePath = path.resolve(...pathResolveArgs, entries[i]);
                 if (fs.statSync(filePath).isFile()) {
                     fs.unlinkSync(filePath);
                 } else {

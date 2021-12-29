@@ -131,10 +131,10 @@ class Server {
     }
     // get api's method and arguments required to perform the rest request
     getApi = (restApi, ctx) => Promise.resolve(restApi.filter((item) => this.fn.isExactContextMatch(ctx, item.rest))[0].api);
-    // get dynamic Model
-    getModel = (connection) => require('./db/model')(connection);
     // set dynamic Model
-    setModel = (connection) => this.getModel(connection);
+    getModel = (connection) => this._getModel(connection);
+    // get dynamic Model
+    _getModel = (connection) => require('./db/model')(connection);
     // direct response
     send = (req, res) => {
         if (req.setHeaders) res.set(req.setHeaders);

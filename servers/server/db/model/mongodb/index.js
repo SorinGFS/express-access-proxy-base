@@ -22,8 +22,8 @@ class Model extends DB {
     exec() {
         return this._chain(this._exec, arguments);
     }
-    _exec(fn, args) {
-        this[fn].apply(this, Array.prototype.slice.call(args));
+    _exec(api) {
+        this[api.method].apply(this, Array.prototype.slice.call(api.arguments));
     }
     restClient() {
         return this._chain(this._init, arguments);
