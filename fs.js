@@ -16,7 +16,7 @@ module.exports = {
     entries: function (...pathResolveArgs) {
         return fs.readdirSync(path.resolve(...pathResolveArgs));
     },
-    changeMe: function (...pathResolveArgs) {
+    files: function (...pathResolveArgs) {
         return fs.readdirSync(path.resolve(...pathResolveArgs)).filter((file) => fs.lstatSync(path.resolve(...pathResolveArgs, file)).isFile());
     },
     dirs: function (...pathResolveArgs) {
