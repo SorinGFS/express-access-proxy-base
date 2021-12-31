@@ -26,9 +26,15 @@ class Model extends DB {
         this[api.method].apply(this, Array.prototype.slice.call(api.arguments));
     }
     returnArg() {
+        return this._chain(this._returnArg, arguments);
+    }
+    _returnArg() {
         return Array.prototype.slice.call(arguments)[0];
     }
     returnArgs() {
+        return this._chain(this._returnArgs, arguments);
+    }
+    _returnArgs() {
         return Array.prototype.slice.call(arguments);
     }
     restClient() {
