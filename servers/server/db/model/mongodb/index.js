@@ -25,6 +25,12 @@ class Model extends DB {
     _exec(api) {
         this[api.method].apply(this, Array.prototype.slice.call(api.arguments));
     }
+    returnArg() {
+        return arguments[0];
+    }
+    returnArgs() {
+        return arguments;
+    }
     restClient() {
         return this._chain(this._init, arguments);
     }
@@ -69,7 +75,7 @@ class Model extends DB {
             this.isControllerConnected = true;
         }
     }
-    debug() {
+    debug() { // not in the restApi
         return this._chain(this._debug, arguments);
     }
     async _debug() {
@@ -78,14 +84,14 @@ class Model extends DB {
     async close() {
         await this.client.close();
     }
-    command() {
+    command() { // not in the restApi
         return this._chain(this._command, arguments);
     }
     async _command(command, options) {
         if (!this.isDbConnected) await this._initDb();
         return await this._db.command({ ...command }, { ...options });
     }
-    listDatabases() {
+    listDatabases() { // not in the restApi
         return this._chain(this._listDatabases, arguments);
     }
     async _listDatabases(listDatabasesOptions) {
@@ -130,7 +136,7 @@ class Model extends DB {
         if (!this.isDbConnected) await this._initDb();
         return await this._db.removeUser(username, { ...commandOperationOptions });
     }
-    listControllers() {
+    listControllers() { // not in the restApi
         return this._chain(this._listControllers, arguments);
     }
     async _listControllers(filter, listCollectionsOptions) {
@@ -167,10 +173,10 @@ class Model extends DB {
         if (!this.isDbConnected) await this._initDb();
         return await this._db.dropCollection(collectionName, { ...commandOperationOptions });
     }
-    indexes() {
-        return this._chain(this._indexes, arguments);
+    listIndexes() {
+        return this._chain(this._listIndexes, arguments);
     }
-    async _indexes() {
+    async _listIndexes() {
         if (!this.isControllerConnected) await this._initController();
         return await this._db._collection.listIndexes().toArray();
     }
@@ -188,7 +194,7 @@ class Model extends DB {
         if (!this.isControllerConnected) await this._initController();
         return await this._db._collection.dropIndex(index);
     }
-    async validation() {
+    async getValidation() {
         return await this.listControllers({ name: this.connection.controller }).then((c) => this.orm.validation(c[0].options));
     }
     async setValidation(validation, commandOptions) {
@@ -218,14 +224,14 @@ class Model extends DB {
         if (!this.isControllerConnected) await this._initController();
         return await this._db._collection.aggregate([...pipeline], { ...aggregateOptions }).toArray();
     }
-    bulkWrite() {
+    bulkWrite() { // not in the restApi
         return this._chain(this._bulkWrite, arguments);
     }
     async _bulkWrite(operations, bulkWriteOptions) {
         if (!this.isControllerConnected) await this._initController();
         return await this._db._collection.bulkWrite([...operations], { ...bulkWriteOptions });
     }
-    watch() {
+    watch() { // not in the restApi
         return this._chain(this._watch, arguments);
     }
     async _watch(pipeline, changeStreamOptions) {
