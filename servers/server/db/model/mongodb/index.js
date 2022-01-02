@@ -81,7 +81,8 @@ class Model extends DB {
             this.isControllerConnected = true;
         }
     }
-    debug() { // not in the restApi
+    // not in the restApi
+    debug() {
         return this._chain(this._debug, arguments);
     }
     async _debug() {
@@ -90,14 +91,16 @@ class Model extends DB {
     async close() {
         await this.client.close();
     }
-    command() { // not in the restApi
+    // not in the restApi
+    command() {
         return this._chain(this._command, arguments);
     }
     async _command(command, options) {
         if (!this.isDbConnected) await this._initDb();
         return await this._db.command({ ...command }, { ...options });
     }
-    listDatabases() { // not in the restApi
+    // not in the restApi
+    listDatabases() {
         return this._chain(this._listDatabases, arguments);
     }
     async _listDatabases(listDatabasesOptions) {
@@ -142,7 +145,8 @@ class Model extends DB {
         if (!this.isDbConnected) await this._initDb();
         return await this._db.removeUser(username, { ...commandOperationOptions });
     }
-    listControllers() { // not in the restApi
+    // not in the restApi
+    listControllers() {
         return this._chain(this._listControllers, arguments);
     }
     async _listControllers(filter, listCollectionsOptions) {
@@ -163,7 +167,7 @@ class Model extends DB {
         return this._chain(this._setControllerOptions, arguments);
     }
     async _setControllerOptions(collectionOptions, commandOptions) {
-        return await this._db.command({ collMod: this.connection.controller, ...collectionOptions }, { ...commandOptions });
+        return await this._command({ collMod: this.connection.controller, ...collectionOptions }, { ...commandOptions });
     }
     renameController() {
         return this._chain(this._renameController, arguments);
@@ -230,14 +234,16 @@ class Model extends DB {
         if (!this.isControllerConnected) await this._initController();
         return await this._db._collection.aggregate([...pipeline], { ...aggregateOptions }).toArray();
     }
-    bulkWrite() { // not in the restApi
+    // not in the restApi
+    bulkWrite() {
         return this._chain(this._bulkWrite, arguments);
     }
     async _bulkWrite(operations, bulkWriteOptions) {
         if (!this.isControllerConnected) await this._initController();
         return await this._db._collection.bulkWrite([...operations], { ...bulkWriteOptions });
     }
-    watch() { // not in the restApi
+    // not in the restApi
+    watch() {
         return this._chain(this._watch, arguments);
     }
     async _watch(pipeline, changeStreamOptions) {
